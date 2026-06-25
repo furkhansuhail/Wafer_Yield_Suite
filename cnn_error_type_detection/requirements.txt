@@ -1,0 +1,30 @@
+# =============================================================================
+# Track 1 — Wafer Map Classifier : Python dependencies
+# Python 3.10+ recommended
+# =============================================================================
+
+# ---- Core (always required) -------------------------------------------------
+numpy>=1.24
+pandas>=2.0
+scikit-learn>=1.5        # stratified split + evaluation metrics
+matplotlib>=3.7          # EDA + evaluation plots
+pyyaml>=6.0              # read config.yaml
+
+# ---- Data download (Module 1) ----------------------------------------------
+# Needed only if you use the Kaggle API path (not --from-file).
+# Requires API credentials at ~/.kaggle/kaggle.json
+kaggle>=1.6
+
+# ---- Deep-learning backend : CHOOSE ONE ------------------------------------
+# The model/train/evaluate modules support BOTH frameworks. Install only the
+# one you intend to use — you do NOT need both.
+#
+#   Keras path  (track1_model_keras.py):
+# tensorflow>=2.16        # or: tensorflow-cpu>=2.16  for a smaller CPU-only build
+#
+#   PyTorch path (track1_model_torch.py):
+# torch>=2.0
+#
+# Uncomment the line for your chosen backend above, then:
+#   pip install -r requirements.txt
+# =============================================================================

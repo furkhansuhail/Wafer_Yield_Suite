@@ -1,0 +1,15 @@
+.venv/
+node_modules/
+wafer_mcp_platform/_workspace/
+__pycache__/
+*.pyc
+package-lock.json
+
+# Secrets for the optional LLM-routing tab (never commit your real key)
+keys.env
+
+# Kaggle credentials for docker compose (never commit your real key); .env.example is fine
+.env
+
+# Host bind-mount for datasets + trained models (docker compose). Never commit data.
+/workspace/

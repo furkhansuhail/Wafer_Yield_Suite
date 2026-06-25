@@ -1,0 +1,22 @@
+{
+  "name": "wafer-yield-mcp-suite",
+  "version": "1.0.0",
+  "private": true,
+  "description": "MCP server + Streamlit dashboard unifying SECOM / wafer-CNN / yield-curve models. npm wraps the Python setup and launch.",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "postinstall": "node scripts/bootstrap.mjs",
+    "setup": "node scripts/bootstrap.mjs",
+    "setup:train": "node scripts/bootstrap.mjs --with-train",
+    "start": "node scripts/run.mjs dashboard",
+    "dashboard": "node scripts/run.mjs dashboard",
+    "server": "node scripts/run.mjs server",
+    "server:http": "node scripts/run.mjs server --http",
+    "train:secom": "node scripts/run.mjs train secom",
+    "train:yield": "node scripts/run.mjs train yield_curve",
+    "check": "node scripts/run.mjs dashboard --check",
+    "clean": "node scripts/clean.mjs"
+  }
+}

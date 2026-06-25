@@ -1,0 +1,58 @@
+# docker-compose.yml — one-command launch.
+#
+#   docker compose up            # build (first time) + run the dashboard
+#   open http://localhost:8501
+#
+# The MCP server runs *inside* the dashboard container (Streamlit spawns it).
+# An optional standalone MCP-over-HTTP service is provided for agents that want
+# to connect to the server directly — start it with:
+#   docker compose --profile agents up mcp-http
+
+services:
+  dashboard:
+    build:
+      context: .
+      # To bake in the CNN backend (large), uncomment:
+      # args:
+      #   WITH_DL: torch
+    image: wafer-yield-mcp:latest
+    container_name: wafer-yield-dashboard
+    ports:
+      - "8501:8501"
+    environment:
+      # Kaggle credentials for the WM-811K auto-download (optional).
+      # Set these in your shell or in a `.env` file next to this compose file:
+      #   KAGGLE_USERNAME=your_user
+      #   KAGGLE_KEY=your_api_key
+      # They're empty by default, so the container starts fine without them — you
+      # just won't be able to auto-download (use the "register LSWMD.pkl" path instead).
+      KAGGLE_USERNAME: "${KAGGLE_USERNAME:-}"
+      KAGGLE_KEY: "${KAGGLE_KEY:-}"
+    volumes:
+      # Datasets + trained models land here. This is a HOST bind mount, so the
+      # files appear in ./workspace next to this file — you can browse them
+      # directly (e.g. ./workspace/data/secom/, ./workspace/data/wm811k/LSWMD.pkl)
+      # and they persist across rebuilds. Override the host path with
+      # WAFER_WORKSPACE_DIR in your shell or .env if you want it elsewhere.
+      - ${WAFER_WORKSPACE_DIR:-./workspace}:/data
+      # Alternative to KAGGLE_USERNAME/KAGGLE_KEY: mount your kaggle.json token
+      # (read-only). Uncomment if you prefer the token-file flow:
+      # - ${HOME}/.kaggle:/root/.kaggle:ro
+    restart: unless-stopped
+
+  # Optional: expose the MCP server over streamable HTTP for external agents.
+  mcp-http:
+    image: wafer-yield-mcp:latest
+    container_name: wafer-yield-mcp-http
+    profiles: ["agents"]
+    command: ["python", "-m", "mcp_server.server", "--http"]
+    working_dir: /app/wafer_mcp_platform
+    ports:
+      - "8000:8000"
+    environment:
+      KAGGLE_USERNAME: "${KAGGLE_USERNAME:-}"
+      KAGGLE_KEY: "${KAGGLE_KEY:-}"
+    volumes:
+      - ${WAFER_WORKSPACE_DIR:-./workspace}:/data
+      # - ${HOME}/.kaggle:/root/.kaggle:ro
+    restart: unless-stopped
