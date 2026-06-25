@@ -1,0 +1,13 @@
+# SECOM yield-prediction pipeline — dependencies
+# Lower bounds chosen for the features the code actually uses:
+#   - scikit-learn >= 1.5 : HistGradientBoostingClassifier(class_weight=...)
+#   - imbalanced-learn >= 0.12 : SMOTEENN/SMOTETomek/BalancedRandomForest APIs
+numpy>=1.24
+pandas>=2.0
+scikit-learn>=1.5
+imbalanced-learn>=0.12
+xgboost>=1.7          # optional: only needed for --estimator xgboost
+matplotlib>=3.7
+ucimlrepo>=0.0.7      # primary download path (UCI API)
+tabulate>=0.9         # markdown tables in the reports
+kaggle>=1.6

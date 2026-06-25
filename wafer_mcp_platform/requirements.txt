@@ -1,0 +1,40 @@
+# Wafer / Yield MCP Platform — dependencies
+#
+# This installs the GLUE (MCP server + Streamlit client). Each underlying
+# project still needs its own requirements for *training* (sklearn/imblearn for
+# SECOM, torch or tensorflow for the CNN, scipy for the yield models). Install
+# those from the respective project folders when you intend to train.
+
+# ---- MCP server + client ---------------------------------------------------
+mcp>=1.27,<2          # official Python SDK (bundles FastMCP); pin <2 until v2 stabilises
+# fastmcp>=3.0        # alternative: standalone FastMCP; server.py falls back to it
+
+# ---- Dashboard -------------------------------------------------------------
+streamlit>=1.36
+
+# ---- Optional: LLM routing tab ("Ask (LLM)") -------------------------------
+# Only needed if you want the natural-language routing tab. It also requires an
+# API key in keys.env (copy keys.env.example). The rest of the platform — including
+# the rule-based router — works without this.
+# anthropic>=0.40
+
+# ---- Shared data handling --------------------------------------------------
+numpy>=1.24
+pandas>=2.0
+
+# ---- In-process training (the dashboard now trains models itself) ----------
+# SECOM + yield train in-process from the dashboard/MCP core, so these are no
+# longer optional for a working install.
+scikit-learn>=1.5       # SECOM pipeline + CNN split/metrics
+imbalanced-learn>=0.12  # SECOM resampling pipeline
+scipy>=1.7              # yield-curve fitting
+matplotlib>=3.7         # EDA/eval modules import it at load time
+ucimlrepo>=0.0.7        # SECOM download (UCI API)
+tabulate>=0.9           # markdown tables in SECOM reports
+
+# ---- Optional CNN backend (only needed to TRAIN/serve the wafer CNN) -------
+# Install ONE of these to enable the Wafer CNN tab; without it the other two
+# models work fine and CNN training returns a clear "install a backend" message.
+# torch>=2.0
+# tensorflow>=2.16
+# kaggle>=1.6           # WM-811K auto-download (else use register_wm811k)

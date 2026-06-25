@@ -1,0 +1,13 @@
+# Keep the build context small and reproducible.
+.venv/
+node_modules/
+**/__pycache__/
+**/*.pyc
+wafer_mcp_platform/_workspace/
+.git/
+*.zip
+package-lock.json
+# data + models are mounted at runtime, never baked into the image
+**/LSWMD.pkl
+**/*.joblib
+**/models.json

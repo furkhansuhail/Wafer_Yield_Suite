@@ -1,0 +1,20 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.ipynb_checkpoints/
+
+# pipeline outputs
+artifacts/
+artifacts_test/
+models.json
+models_*.json
+*.png
+
+# data (place WM-811K here yourself; not shipped)
+LSWMD.pkl
+*.pkl
+
+# envs
+.venv/
+venv/
+.env
