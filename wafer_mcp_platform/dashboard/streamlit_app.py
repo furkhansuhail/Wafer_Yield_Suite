@@ -164,6 +164,36 @@ def _unavailable_notice(domain: str, md: dict | None):
     return True
 
 
+def _is_failure(res) -> bool:
+    """True if a tool returned the structured failure envelope (ok == False)."""
+    return isinstance(res, dict) and res.get("ok") is False and "error_code" in res
+
+
+def render_failure(res) -> bool:
+    """Render the structured failure envelope produced by error_advisor.advise()
+    (error_code / title / explanation / how_to_fix). Returns True if `res` was a
+    failure (so the caller should stop before rendering success output)."""
+    if not _is_failure(res):
+        return False
+    st.error(f"**{res.get('title', 'Operation failed')}**")
+    explanation = res.get("explanation")
+    if explanation:
+        # The LLM-written (or built-in) plain-language explanation.
+        st.write(explanation)
+        if res.get("llm_used"):
+            st.caption("Explanation written by the LLM (API key detected).")
+        elif res.get("llm_error"):
+            st.caption(f"LLM explanation unavailable ({res['llm_error']}); showing built-in guidance.")
+    fixes = res.get("how_to_fix") or []
+    if fixes:
+        st.markdown("**How to fix it:**")
+        for i, step in enumerate(fixes, 1):
+            st.markdown(f"{i}. {step}")
+    with st.expander("Technical details"):
+        st.json({k: v for k, v in res.items() if k != "explanation"})
+    return True
+
+
 # --------------------------------------------------------------------------- #
 # Tabs
 # --------------------------------------------------------------------------- #
@@ -319,7 +349,17 @@ with tab_pipeline:
                     st.text(f"{m['t'].split('T')[-1]}  {m['text']}")
                 if j.get("result"):
                     st.json(j["result"])
-                if j.get("error"):
+                if j.get("failure"):
+                    # A known, explainable failure (data not downloaded / model
+                    # not trained): present it clearly, optionally LLM-enriched.
+                    advised = j["failure"]
+                    try:
+                        import error_advisor
+                        advised = error_advisor.advise(j["failure"])
+                    except Exception:
+                        advised = {**j["failure"], "ok": False}
+                    render_failure(advised)
+                elif j.get("error"):
                     st.error(j["error"])
 
     if auto and any_running:
@@ -356,7 +396,7 @@ with tab_secom:
             res = api.predict_secom(ex)
             st.session_state["secom_res"] = res
         res = st.session_state.get("secom_res")
-        if res:
+        if res and not render_failure(res):
             c = st.columns(3)
             c[0].metric("Units scored", res["n_units"])
             c[1].metric("Predicted fail", res["n_predicted_fail"])
@@ -372,7 +412,9 @@ with tab_secom:
             if st.button("Predict pasted", key="secom_paste_btn"):
                 try:
                     feats = json.loads(txt)
-                    st.json(api.predict_secom(feats))
+                    res2 = api.predict_secom(feats)
+                    if not render_failure(res2):
+                        st.json(res2)
                 except Exception as exc:
                     st.error(exc)
 
@@ -405,7 +447,7 @@ with tab_cnn:
                 if st.button("Classify this map", key="cnn_go", type="primary"):
                     st.session_state["cnn_res"] = api.classify_wafer_map(examples[int(idx)])
                 res = st.session_state.get("cnn_res")
-                if res:
+                if res and not render_failure(res):
                     r0 = res["results"][0]
                     st.metric("Predicted pattern", r0["pattern"], f"conf {r0['confidence']}")
                     classes = res.get("classes") or [f"class_{i}" for i in range(len(r0["probabilities"]))]
@@ -441,10 +483,11 @@ with tab_yield:
         areas = list(range(1, amax + 1))
         try:
             fwd = api.predict_yield(areas, model=model_arg)
-            import pandas as pd
-            curve = pd.DataFrame(fwd["yield_by_area"]).set_index("area")
-            st.line_chart(curve)
-            st.caption(f"model = {fwd['model']} · params = {fwd.get('params', {})}")
+            if not render_failure(fwd):
+                import pandas as pd
+                curve = pd.DataFrame(fwd["yield_by_area"]).set_index("area")
+                st.line_chart(curve)
+                st.caption(f"model = {fwd['model']} · params = {fwd.get('params', {})}")
         except Exception as exc:
             st.error(exc)
 
@@ -453,8 +496,9 @@ with tab_yield:
         if st.button("Compute max die area", key="yield_inv", type="primary"):
             try:
                 inv = api.max_die_area_for_yield(ty, model=model_arg)
-                st.metric("Max die area (unit-die areas)",
-                          inv["max_area_unit_dies"] if inv["max_area_unit_dies"] is not None else "∞")
+                if not render_failure(inv):
+                    st.metric("Max die area (unit-die areas)",
+                              inv["max_area_unit_dies"] if inv["max_area_unit_dies"] is not None else "∞")
             except Exception as exc:
                 st.error(exc)
 
@@ -490,9 +534,10 @@ with tab_router:
         if st.button("Route AND predict"):
             try:
                 res = api.route_and_predict(json.loads(payload_text))
-                st.info(f"Platform chose: **{res['routing']['chosen_domain']}** — "
-                        f"{res['routing']['rationale']}")
-                st.json(res["prediction"])
+                if not render_failure(res):
+                    st.info(f"Platform chose: **{res['routing']['chosen_domain']}** — "
+                            f"{res['routing']['rationale']}")
+                    st.json(res["prediction"])
             except Exception as exc:
                 st.error(f"{exc}")
 
@@ -632,6 +677,8 @@ with tab_tools:
     args_text = st.text_area("Arguments (JSON)", "{}", height=120)
     if st.button("Call"):
         try:
-            st.json(call_tool(tool, json.loads(args_text)))
+            out = call_tool(tool, json.loads(args_text))
+            if not render_failure(out):
+                st.json(out)
         except Exception as exc:
             st.error(exc)

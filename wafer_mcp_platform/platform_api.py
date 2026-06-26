@@ -25,6 +25,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 from typing import Any
+import functools
 
 _HERE = Path(__file__).resolve().parent
 if str(_HERE) not in sys.path:
@@ -34,6 +35,22 @@ import platform_config as cfg            # noqa: E402
 from shared import data_registry as registry  # noqa: E402
 from mcp_server import adapters, router  # noqa: E402
 import pipeline                          # noqa: E402
+import errors                            # noqa: E402
+import error_advisor                     # noqa: E402
+
+
+def _guarded(fn):
+    """Wrap a tool so the two explainable failures (model-not-trained,
+    data-not-downloaded) come back as a clear, structured response — optionally
+    LLM-enriched when an API key is configured — instead of raising a raw
+    exception. Genuine/unexpected errors still propagate untouched."""
+    @functools.wraps(fn)
+    def wrapper(*args, **kwargs):
+        try:
+            return fn(*args, **kwargs)
+        except errors.PlatformError as exc:
+            return error_advisor.advise(exc.to_dict())
+    return wrapper
 
 
 # --------------------------------------------------------------------------- #
@@ -123,11 +140,13 @@ def get_example_data(domain: str, n: int = 3) -> dict:
 # --------------------------------------------------------------------------- #
 # Per-model prediction
 # --------------------------------------------------------------------------- #
+@_guarded
 def predict_secom(features: list) -> dict:
     """One row or a list of rows of ~590 sensor values -> P(fail) + decision."""
     return adapters.get_adapter(cfg.DOMAIN_SECOM).predict({"features": features})
 
 
+@_guarded
 def classify_wafer_map(wafer_map: list, img_size: int | None = None) -> dict:
     """A 2-D grid of {0:no-die,1:good,2:bad} -> defect pattern + probabilities."""
     payload: dict = {"wafer_map": wafer_map}
@@ -136,6 +155,7 @@ def classify_wafer_map(wafer_map: list, img_size: int | None = None) -> dict:
     return adapters.get_adapter(cfg.DOMAIN_WAFER_CNN).predict(payload)
 
 
+@_guarded
 def predict_yield(area: Any, model: str | None = None) -> dict:
     """Expected defect-free yield for a die of the given area (scalar or list)."""
     payload: dict = {"area": area}
@@ -144,6 +164,7 @@ def predict_yield(area: Any, model: str | None = None) -> dict:
     return adapters.get_adapter(cfg.DOMAIN_YIELD).predict(payload)
 
 
+@_guarded
 def max_die_area_for_yield(target_yield: float, model: str | None = None) -> dict:
     """Largest die area whose predicted yield still meets the target (0<t<1)."""
     payload: dict = {"target_yield": target_yield}
@@ -160,6 +181,7 @@ def explain_routing(payload: dict) -> dict:
     return router.explain(payload)
 
 
+@_guarded
 def route_and_predict(payload: dict) -> dict:
     """Inspect `payload`, choose the model, run it, return decision + prediction."""
     domain, rationale = router.route(payload)
@@ -172,7 +194,12 @@ def route_and_predict(payload: dict) -> dict:
 # Data + training (download-once ledger lives in pipeline)
 # --------------------------------------------------------------------------- #
 def download_dataset(dataset: str, allow_download: bool = False) -> dict:
-    return pipeline.run_download_sync(dataset, allow_download=allow_download)
+    job = pipeline.run_download_sync(dataset, allow_download=allow_download)
+    if job.get("state") == "failed" and job.get("failure"):
+        advised = error_advisor.advise(job["failure"])
+        advised["job_id"] = job.get("job_id")
+        return advised
+    return job
 
 
 def register_wm811k(file_path: str) -> dict:
@@ -205,6 +232,12 @@ def train(domain: str, **params) -> dict:
     job = pipeline.run_train_sync(domain, **params)
     if job.get("state") == "completed":
         return job.get("result") or {"status": "completed"}
+    # Known, explainable failure (e.g. the data isn't downloaded yet): return a
+    # clear, optionally LLM-enriched response instead of a raw exception.
+    if job.get("failure"):
+        advised = error_advisor.advise(job["failure"])
+        advised["job_id"] = job.get("job_id")
+        return advised
     raise RuntimeError(job.get("error") or "training failed")
 
 

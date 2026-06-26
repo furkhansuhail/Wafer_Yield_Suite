@@ -203,3 +203,45 @@ def summarize_result(
     return "".join(
         b.text for b in resp.content if getattr(b, "type", None) == "text"
     ).strip()
+
+
+def explain_failure(
+    failure: dict,
+    *,
+    api_key: str,
+    model: str | None = None,
+) -> str:
+    """Turn a structured failure into a short, friendly, accurate explanation.
+
+    ``failure`` is the dict produced by ``errors.PlatformError.to_dict()`` (it
+    has error_code / title / what_happened / how_to_fix / domain / dataset). The
+    system prompt pins the model to ONLY the facts in that dict — it must not
+    invent paths, tools, or credentials — so the LLM explanation can never give
+    advice that contradicts the deterministic remedy steps already attached.
+    """
+    import anthropic
+
+    client = anthropic.Anthropic(api_key=api_key)
+    model = model or DEFAULT_MODEL
+    payload = json.dumps(failure, indent=2, default=str)[:4000]
+    resp = client.messages.create(
+        model=model,
+        max_tokens=400,
+        system=(
+            "You explain why an operation on a wafer/yield ML platform failed, "
+            "in plain language a non-expert can act on. You are given a "
+            "structured failure description. Rules: (1) Use ONLY the facts in it "
+            "— never invent file paths, tool names, datasets, or credentials. "
+            "(2) Say plainly what went wrong, then give the exact next step(s) "
+            "from 'how_to_fix', in order. (3) Be concise: 2–4 sentences, no "
+            "preamble, no apology."
+        ),
+        messages=[{
+            "role": "user",
+            "content": f"Structured failure:\n{payload}\n\n"
+                       "Explain what went wrong and what to do next.",
+        }],
+    )
+    return "".join(
+        b.text for b in resp.content if getattr(b, "type", None) == "text"
+    ).strip()
