@@ -330,6 +330,15 @@ def _run(job: dict, worker, *args) -> None:
         job["error"] = f"{type(exc).__name__}: {exc}"
         job["traceback"] = traceback.format_exc()
         job["state"] = "failed"
+        # If this is one of the platform's explainable failures (model not
+        # trained / data not downloaded), attach its structured form so a
+        # front-end (and the LLM advisor) can present it clearly.
+        try:
+            import errors as _errors
+            if isinstance(exc, _errors.PlatformError):
+                job["failure"] = exc.to_dict()
+        except Exception:
+            pass
         _msg(job, f"FAILED: {job['error']}")
     finally:
         job["finished_at"] = _now()

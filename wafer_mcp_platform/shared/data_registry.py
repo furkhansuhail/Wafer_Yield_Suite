@@ -39,6 +39,7 @@ from typing import Optional
 # Make the platform package importable whether run as a module or a script.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import platform_config as cfg  # noqa: E402
+import errors  # noqa: E402
 
 logger = logging.getLogger("data_registry")
 
@@ -140,13 +141,7 @@ def ensure_wm811k(from_file: Optional[str | Path] = None,
         if fetched is not None:
             return register_path(fetched)
 
-    raise FileNotFoundError(
-        "WM-811K (LSWMD.pkl) is not available yet.\n"
-        f"  Expected at: {cfg.WM811K_PICKLE}\n"
-        "  Fix it once, then every model that needs wafer maps reuses it:\n"
-        "    • have the file already?  data_registry.register_path('/path/LSWMD.pkl')\n"
-        "    • want to download it?     set up ~/.kaggle/kaggle.json and retry\n"
-    )
+    raise errors.data_not_downloaded("wm811k", str(cfg.WM811K_PICKLE))
 
 
 def _download_wm811k_via_cnn_downloader() -> Optional[Path]:

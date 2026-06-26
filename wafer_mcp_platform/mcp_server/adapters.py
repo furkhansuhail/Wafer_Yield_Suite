@@ -23,6 +23,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import platform_config as cfg  # noqa: E402
+import errors  # noqa: E402
 
 logger = logging.getLogger("adapters")
 
@@ -55,10 +56,7 @@ class SecomAdapter:
         if self._predictor is not None:
             return
         if not self.is_trained():
-            raise RuntimeError(
-                f"SECOM model not trained yet (expected {cfg.SECOM_MODEL_PATH}). "
-                "Run the `train` tool with domain='secom' first."
-            )
+            raise errors.model_not_trained(self.domain, str(cfg.SECOM_MODEL_PATH))
         _add_paths(cfg.PROJECTS_ROOT, cfg.SECOM_PROJECT, cfg.SECOM_PROJECT / "src")
         try:
             from predictor import Predictor  # type: ignore
@@ -142,10 +140,7 @@ class WaferCnnAdapter:
             return
         f = self._model_file()
         if f is None:
-            raise RuntimeError(
-                "Wafer CNN not trained yet. Run the `train` tool with "
-                "domain='wafer_cnn' (needs the shared WM-811K data + a backend)."
-            )
+            raise errors.model_not_trained(self.domain, str(cfg.CNN_MODEL_DIR))
         import json
         classes_file = cfg.CNN_MODEL_DIR / "classes.json"
         self._classes = json.loads(classes_file.read_text()) if classes_file.exists() else None
@@ -251,10 +246,7 @@ class YieldCurveAdapter:
         if self._bundle is not None:
             return
         if not self.is_trained():
-            raise RuntimeError(
-                f"Yield models not fitted yet (expected {cfg.YIELD_MODEL_PATH}). "
-                "Run the `train` tool with domain='yield_curve'."
-            )
+            raise errors.model_not_trained(self.domain, str(cfg.YIELD_MODEL_PATH))
         _add_paths(cfg.YIELD_PROJECT)
         from wm811k_yield.persistence import ModelStore  # type: ignore
         self._bundle = ModelStore.load(cfg.YIELD_MODEL_PATH)

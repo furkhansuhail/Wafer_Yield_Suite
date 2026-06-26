@@ -6,6 +6,7 @@ ucimlrepo>=0.0.7
 scipy>=1.7
 matplotlib>=3.7         # SECOM EDA/eval modules import it at load time; also used by CNN EDA
 kaggle>=1.6             # WM-811K auto-download (ships the `kaggle` CLI the downloader shells out to)
+
 # Deep-learning backend for the CNN — pick ONE and uncomment:
 torch>=2.0
 tensorflow>=2.16

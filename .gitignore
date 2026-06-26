@@ -10,6 +10,8 @@ keys.env
 
 # Kaggle credentials for docker compose (never commit your real key); .env.example is fine
 .env
+*.env
+keys.env
 
 # Host bind-mount for datasets + trained models (docker compose). Never commit data.
 /workspace/
